@@ -60,10 +60,18 @@ func (c *Client) readPump() {
 		}
 
 		outputTransferPacket := decodeTransferPacket(message)
-		//formattedCmdReply := fmt.Sprintf("%s - %s", c.id, outputTransferPacket.Payload)
-		formattedCmdReplyForDiscord := fmt.Sprintf("%s ```%s```", c.id, outputTransferPacket.Payload)
+		messagePayload := outputTransferPacket.Payload
 
-		c.discordSendMessageRequests <- []byte(formattedCmdReplyForDiscord)
+		chunks := splitStringIntoChunks(messagePayload, 1900)
+		for _, chunk := range chunks {
+			formattedReplyForDiscord := fmt.Sprintf("%s", chunk)
+			if outputTransferPacket.Header == "command_output" {
+				formattedReplyForDiscord = fmt.Sprintf("%s ```%s```", c.id, chunk)
+			}
+
+			c.discordSendMessageRequests <- []byte(formattedReplyForDiscord)
+		}
+
 	}
 }
 
@@ -98,7 +106,7 @@ func (c *Client) requestPump() {
 	for {
 		select {
 		case discordSendMessageRequest := <-c.discordSendMessageRequests:
-			log.Println(string(discordSendMessageRequest))
+			//log.Println(string(discordSendMessageRequest))
 			_, err := c.hub.s.ChannelMessageSend(*channelId, string(discordSendMessageRequest))
 			if err != nil {
 				log.Printf("Error sending discord msg: %v", err)

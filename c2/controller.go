@@ -63,8 +63,8 @@ func (ah *ApiHandler) InputHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Print the message to the server console
-	fmt.Printf("Received input: %s\n", input.Input)
-	fmt.Printf("Received agent: %s\n", input.AgentId)
+	//fmt.Printf("Received input: %s\n", input.Input)
+	//fmt.Printf("Received agent: %s\n", input.AgentId)
 
 	encodedTransferPacket := encodeTransferPacket(input.CommandType, input.Input)
 	ah.Hub.sendTarget <- Message{clientId: input.AgentId, data: encodedTransferPacket}

