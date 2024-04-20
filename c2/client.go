@@ -48,6 +48,8 @@ type Client struct {
 func (c *Client) readPump() {
 	defer func() {
 		c.hub.unregister <- c
+		disconnectedAlertMsg := fmt.Sprintf("`%s` disconnected", c.id)
+		c.discordSendMessageRequests <- []byte(disconnectedAlertMsg)
 		c.conn.Close()
 	}()
 	for {
