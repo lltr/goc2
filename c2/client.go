@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -37,10 +38,11 @@ var upgrader = websocket.Upgrader{
 
 // Client is a middleman between the websocket connection and the hub.
 type Client struct {
-	hub  *Hub
-	id   string
-	conn *websocket.Conn
-	send chan []byte
+	hub                        *Hub
+	id                         string
+	conn                       *websocket.Conn
+	send                       chan []byte
+	discordSendMessageRequests chan []byte
 }
 
 func (c *Client) readPump() {
@@ -57,8 +59,11 @@ func (c *Client) readPump() {
 			break
 		}
 
-		encodedTransferPacket := decodeTransferPacket(message)
-		log.Printf("%s - %s", c.id, encodedTransferPacket.Payload)
+		outputTransferPacket := decodeTransferPacket(message)
+		//formattedCmdReply := fmt.Sprintf("%s - %s", c.id, outputTransferPacket.Payload)
+		formattedCmdReplyForDiscord := fmt.Sprintf("%s ```%s```", c.id, outputTransferPacket.Payload)
+
+		c.discordSendMessageRequests <- []byte(formattedCmdReplyForDiscord)
 	}
 }
 
@@ -89,6 +94,19 @@ func (c *Client) writePump() {
 	}
 }
 
+func (c *Client) requestPump() {
+	for {
+		select {
+		case discordSendMessageRequest := <-c.discordSendMessageRequests:
+			log.Println(string(discordSendMessageRequest))
+			_, err := c.hub.s.ChannelMessageSend(*channelId, string(discordSendMessageRequest))
+			if err != nil {
+				log.Printf("Error sending discord msg: %v", err)
+			}
+		}
+	}
+}
+
 // serveWs handles websocket requests from the peer.
 func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request, clientId string) {
 	log.Printf("%s connected", clientId)
@@ -97,9 +115,10 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request, clientId string) 
 		log.Println(err)
 		return
 	}
-	client := &Client{hub: hub, id: clientId, conn: conn, send: make(chan []byte, 256)}
+	client := &Client{hub: hub, id: clientId, conn: conn, send: make(chan []byte, 256), discordSendMessageRequests: make(chan []byte, 256)}
 	client.hub.register <- client
 
 	go client.writePump()
 	go client.readPump()
+	go client.requestPump()
 }

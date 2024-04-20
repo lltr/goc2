@@ -1,6 +1,9 @@
 package main
 
-import "log"
+import (
+	"github.com/bwmarrin/discordgo"
+	"log"
+)
 
 type Message struct { // struct is used internally between channels, sent to sort before converting to WSPacket
 	clientId string
@@ -23,15 +26,18 @@ type Hub struct {
 
 	// Unregister requests from clients.
 	unregister chan *Client
+
+	s *discordgo.Session
 }
 
-func newHub() *Hub {
+func newHub(s *discordgo.Session) *Hub {
 	return &Hub{
 		broadcast:  make(chan []byte),
 		sendTarget: make(chan Message),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		clients:    make(map[string]*Client),
+		s:          s,
 	}
 }
 

@@ -24,6 +24,12 @@ func (ah *ApiHandler) GetAgentsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	agentsConnected := ah.getAgents()
+
+	fmt.Fprintf(w, agentsConnected)
+}
+
+func (ah *ApiHandler) getAgents() string {
 	agentsConnected := ""
 	keys := reflect.ValueOf(ah.Hub.clients).MapKeys()
 	if len(keys) > 0 {
@@ -38,7 +44,7 @@ func (ah *ApiHandler) GetAgentsHandler(w http.ResponseWriter, r *http.Request) {
 		agentsConnected = "No agents connected"
 	}
 
-	fmt.Fprintf(w, agentsConnected)
+	return agentsConnected
 }
 
 func (ah *ApiHandler) InputHandler(w http.ResponseWriter, r *http.Request) {

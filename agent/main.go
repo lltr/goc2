@@ -23,7 +23,6 @@ func init() {
 		addr = flag.String("addr", c2Ip+":8081", "http service address")
 	} else {
 		addr = flag.String("addr", "localhost:8081", "http service address")
-
 	}
 }
 
