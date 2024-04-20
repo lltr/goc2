@@ -90,16 +90,37 @@ func getCmdShell(cmd *exec.Cmd, command string) *exec.Cmd {
 	}
 	return cmd
 }
+
 func executeCommand(command string, c *Client) {
 	var cmd *exec.Cmd
 	cmd = getCmdShell(cmd, command)
 
-	commandOutput, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Println("Error running command: %v", err)
-	}
-	transferPacket := encodeTransferPacket("command_output", string(commandOutput))
-	c.send <- transferPacket
+	go func() {
+		timer := time.NewTimer(5 * time.Second)
+		defer func() {
+			if !timer.Stop() {
+				<-timer.C // Ensure the timer's channel is drained
+			}
+		}()
+
+		for {
+			select {
+			case <-timer.C: // When timer expires
+				log.Println("Command execution timed out")
+				return
+
+			default:
+				commandOutput, err := cmd.CombinedOutput()
+				if err != nil {
+					log.Println("Error running command: %v", err)
+					return
+				}
+				transferPacket := encodeTransferPacket("command_output", "\n"+string(commandOutput))
+				c.send <- transferPacket
+			}
+		}
+
+	}()
 }
 
 func executeWaitableCommand(command string, c *Client) {

@@ -16,8 +16,9 @@ import (
 var addr = flag.String("addr", ":8081", "http service address")
 
 type Input struct {
-	AgentId string `json:"agentId"`
-	Input   string `json:"input"`
+	AgentId     string `json:"agentId"`
+	CommandType string `json:"commandType"`
+	Input       string `json:"input"`
 }
 type ApiHandler struct {
 	Hub *Hub
@@ -65,7 +66,7 @@ func (ah *ApiHandler) InputHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Received input: %s\n", input.Input)
 	fmt.Printf("Received agent: %s\n", input.AgentId)
 
-	encodedTransferPacket := encodeTransferPacket("command", input.Input)
+	encodedTransferPacket := encodeTransferPacket(input.CommandType, input.Input)
 	ah.Hub.sendTarget <- Message{clientId: input.AgentId, data: encodedTransferPacket}
 
 	// Respond to the client
